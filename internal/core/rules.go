@@ -2,10 +2,8 @@ package core
 
 import (
 	"fmt"
-	"strings"
-	"time"
-
 	"github.com/modern-magic-go/identity"
+	"time"
 )
 
 // Service 提供身份底座通用规则。
@@ -55,27 +53,4 @@ func (s *Service) EnsurePasswordCredentialAvailable(credential *identity.Passwor
 		return identity.ErrCredentialUnavailable
 	}
 	return nil
-}
-
-// EnsureVerifyChallengeAvailable 校验验证码挑战是否可用。
-func (s *Service) EnsureVerifyChallengeAvailable(challenge *identity.VerifyChallenge, now time.Time) error {
-	if challenge == nil || !challenge.IsUsable(now) {
-		return identity.ErrChallengeUnavailable
-	}
-	return nil
-}
-
-// MaskIdentifier 对标识进行脱敏。
-func (s *Service) MaskIdentifier(identifier string) string {
-	trimmed := strings.TrimSpace(identifier)
-	if trimmed == "" {
-		return ""
-	}
-	if len(trimmed) >= 11 {
-		return trimmed[:3] + "****" + trimmed[len(trimmed)-4:]
-	}
-	if len(trimmed) <= 2 {
-		return trimmed[:1] + "*"
-	}
-	return trimmed[:1] + strings.Repeat("*", len(trimmed)-2) + trimmed[len(trimmed)-1:]
 }

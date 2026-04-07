@@ -44,15 +44,6 @@ const (
 	ChallengeStatusLocked   ChallengeStatus = "locked"
 )
 
-// SessionRefStatus 表示会话索引状态。
-type SessionRefStatus string
-
-const (
-	SessionRefStatusActive  SessionRefStatus = "active"
-	SessionRefStatusRevoked SessionRefStatus = "revoked"
-	SessionRefStatusExpired SessionRefStatus = "expired"
-)
-
 // Subject 表示身份底座主体。
 type Subject struct {
 	ID          int64
@@ -180,37 +171,4 @@ func (c *VerifyChallenge) IsUsable(now time.Time) bool {
 		return false
 	}
 	return strings.TrimSpace(c.ChallengeID) != ""
-}
-
-// LoginAudit 表示登录审计记录。
-type LoginAudit struct {
-	ID               int64
-	SubjectID        *int64
-	Realm            string
-	Provider         string
-	LoginType        string
-	IdentityType     string
-	IdentifierMasked string
-	Result           int32
-	FailReason       string
-	IP               string
-	UserAgent        string
-	DeviceInfo       string
-	TraceID          string
-	LoginAt          time.Time
-}
-
-// SessionRef 表示会话索引。
-type SessionRef struct {
-	ID        int64
-	SubjectID int64
-	Realm     string
-	TokenID   string
-	Platform  string
-	DeviceID  string
-	IssuedAt  time.Time
-	ExpireAt  time.Time
-	RevokedAt *time.Time
-	Status    SessionRefStatus
-	CreatedAt time.Time
 }
