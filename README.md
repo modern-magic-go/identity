@@ -227,3 +227,11 @@ result, err := svc.PasswordLogin(ctx, identity.PasswordLoginInput{
     Password:   "123456",
 })
 ```
+
+## 示例
+
+仓库提供了一个可直接运行的示例，演示如何把 MySQL 作为主存储、Redis 作为可选缓存，并通过环境变量配置连接信息。
+
+- 示例目录: `examples/basic`
+- 运行方式: `go run ./examples/basic`
+- 环境样例: `examples/basic/.env.example`
