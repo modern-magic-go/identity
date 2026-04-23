@@ -152,7 +152,7 @@ func TestPasswordLogin(t *testing.T) {
 		svc, credentials, identities, subjects := buildService()
 		seedPasswordLoginData(subjects, identities, credentials, identity.SubjectStatusActive)
 
-		result, err := svc.PasswordLogin(context.Background(), usecase.PasswordLoginInput{Realm: "admin", Identifier: "admin_user", Password: "123456", Platform: "web", DeviceID: "dev-1"})
+		result, err := svc.PasswordLogin(context.Background(), usecase.PasswordLoginInput{Realm: "admin", Identifier: "admin_user", Password: "123456"})
 		require.NoError(t, err)
 		require.NotNil(t, result)
 		require.Equal(t, int64(1), result.Subject.SubjectID)

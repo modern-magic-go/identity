@@ -18,10 +18,4 @@ type PasswordLoginInput struct {
 	Realm      string
 	Identifier string
 	Password   string
-	Platform   string
-	DeviceID   string
-	DeviceInfo string
-	IP         string
-	UserAgent  string
-	TraceID    string
 }

@@ -225,7 +225,5 @@ result, err := svc.PasswordLogin(ctx, identity.PasswordLoginInput{
     Realm:      "admin",
     Identifier: "admin_user",
     Password:   "123456",
-    Platform:   "web",
-    DeviceID:   "dev-1",
 })
 ```
