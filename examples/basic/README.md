@@ -16,6 +16,8 @@ This example wires the `identity` package to MySQL storage and optional Redis ca
 2. Copy `.env.example` to `.env` and adjust values if needed.
 3. Run `go run ./examples/basic`.
 
+The example will try to load `examples/basic/.env` automatically when it starts.
+
 ## Useful environment variables
 
 - `MYSQL_DSN` - MySQL connection string. Keep `parseTime=true` enabled.
