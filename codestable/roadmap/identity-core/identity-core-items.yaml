@@ -9,8 +9,8 @@ items:
   - slug: password-verify
     description: VerifyCredential（密码比对编排 + 凭证查找）+ GetOrInitializeSubjectID（静默注册编排）+ 内存 Mock IdentityStore。端到端测试：创建主体→绑定密码→校验凭证
     depends_on: [domain-and-crypto]
-    status: planned
-    feature: null
+    status: done
+    feature: 2026-04-30-password-verify
     minimal_loop: true
 
   - slug: totp-auth
