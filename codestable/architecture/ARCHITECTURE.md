@@ -1,6 +1,6 @@
 # modern-magic-go/identity 架构总入口
 
-> 状态：活跃（2026-04-30 totp-auth 完成）
+> 状态：活跃（2026-04-30 credential-crud 完成）
 > 最后更新：2026-04-30
 
 ## 1. 项目简介
@@ -31,12 +31,14 @@
 - `model.go` — SubjectID / Realm / IdentityType 类型定义 + Credential / CredentialSummary 结构体
 - `errors.go` — 5 个哨兵错误（ErrInvalidCredential / ErrAccountLocked / ErrDuplicateCredential / ErrCredentialNotFound / ErrSubjectNotFound）
 - `store.go` — IdentityStore 接口（4 方法：FindByRealmTypeIdentifier / CreateSubject / BindCredential / ListBySubjectRealm）
-- `api.go` — VerifyInput / VerifyOutput / GetOrInitSubjectInput / GetOrInitSubjectOutput 四个 API 契约类型
+- `api.go` — VerifyInput / VerifyOutput / GetOrInitSubjectInput / GetOrInitSubjectOutput / BindCredentialInput / ListCredentialsInput 六个 API 契约类型
 
 ### `usecase/`（业务编排）
 
 - `verify_credential.go` — VerifyCredential 函数：查凭证 → 找 Verifier → 比对 → 返回结果
 - `get_or_init_subject.go` — GetOrInitializeSubjectID 函数：查凭证 → 已有返回 / 新创建 subject → 绑凭证
+- `bind_credential.go` — BindCredential 函数：从 BindCredentialInput 构造 *Credential → 委托 store.BindCredential
+- `list_credentials.go` — ListCredentials 函数：委托 store.ListBySubjectRealm → 返回脱敏列表
 
 ### `internal/idgen`（内部）
 
@@ -83,5 +85,5 @@
 | domain-and-crypto（领域模型 + 密码学基础） | ✅ done | identity-core f1 |
 | password-verify（密码校验编排 + MockStore） | ✅ done | identity-core f2 |
 | totp-auth（TOTP 2FA） | ✅ done | identity-core f3 |
-| credential-crud（凭证管理） | ⬜ planned | identity-core f4 |
+| credential-crud（凭证管理） | ✅ done | identity-core f4 |
 | core-api（公共 API 组装） | ⬜ planned | identity-core f5 |

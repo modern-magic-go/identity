@@ -30,14 +30,12 @@ func GetOrInitializeSubjectID(
 		return identity.GetOrInitSubjectOutput{}, err
 	}
 
-	newCred := &identity.Credential{
+	if err := BindCredential(ctx, store, identity.BindCredentialInput{
 		SubjectID:    subjectID,
 		Realm:        input.Realm,
 		IdentityType: input.IdentityType,
 		Identifier:   input.Identifier,
-	}
-
-	if err := store.BindCredential(ctx, newCred); err != nil {
+	}); err != nil {
 		return identity.GetOrInitSubjectOutput{}, err
 	}
 

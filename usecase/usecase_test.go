@@ -455,3 +455,166 @@ func TestTwoFactorAuthPasswordAndTOTP(t *testing.T) {
 		t.Fatalf("TOTP SubjectID mismatch: %d vs %d", out2.SubjectID, subjectID)
 	}
 }
+
+func TestBindCredentialSuccess(t *testing.T) {
+	gen, err := idgen.New(1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	mock := store.NewMockStore(gen)
+	ctx := context.Background()
+
+	subjectID, err := mock.CreateSubject(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = BindCredential(ctx, mock, identity.BindCredentialInput{
+		SubjectID:      subjectID,
+		Realm:          "users",
+		IdentityType:   identity.TypePassword,
+		Identifier:     "alice",
+		CredentialData: "$2a$10$hashed",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	found, err := mock.FindByRealmTypeIdentifier(ctx, "users", identity.TypePassword, "alice")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if found.SubjectID != subjectID {
+		t.Fatalf("expected SubjectID=%d, got %d", subjectID, found.SubjectID)
+	}
+}
+
+func TestBindCredentialDuplicate(t *testing.T) {
+	gen, err := idgen.New(1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	mock := store.NewMockStore(gen)
+	ctx := context.Background()
+
+	subjectID, _ := mock.CreateSubject(ctx)
+
+	err = BindCredential(ctx, mock, identity.BindCredentialInput{
+		SubjectID:      subjectID,
+		Realm:          "users",
+		IdentityType:   identity.TypePassword,
+		Identifier:     "admin",
+		CredentialData: "hash",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = BindCredential(ctx, mock, identity.BindCredentialInput{
+		SubjectID:      subjectID,
+		Realm:          "users",
+		IdentityType:   identity.TypePassword,
+		Identifier:     "admin",
+		CredentialData: "hash2",
+	})
+	if err != identity.ErrDuplicateCredential {
+		t.Fatalf("expected ErrDuplicateCredential, got %v", err)
+	}
+}
+
+func TestBindCredentialSubjectNotFound(t *testing.T) {
+	gen, err := idgen.New(1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	mock := store.NewMockStore(gen)
+	ctx := context.Background()
+
+	err = BindCredential(ctx, mock, identity.BindCredentialInput{
+		SubjectID:      999,
+		Realm:          "users",
+		IdentityType:   identity.TypePassword,
+		Identifier:     "new",
+		CredentialData: "hash",
+	})
+	if err != identity.ErrSubjectNotFound {
+		t.Fatalf("expected ErrSubjectNotFound, got %v", err)
+	}
+}
+
+func TestListCredentialsHasCredentials(t *testing.T) {
+	gen, err := idgen.New(1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	mock := store.NewMockStore(gen)
+	ctx := context.Background()
+
+	subjectID, _ := mock.CreateSubject(ctx)
+	mock.BindCredential(ctx, &identity.Credential{
+		SubjectID: subjectID, Realm: "admins", IdentityType: identity.TypePassword, Identifier: "admin", CredentialData: "hash",
+	})
+	mock.BindCredential(ctx, &identity.Credential{
+		SubjectID: subjectID, Realm: "admins", IdentityType: identity.TypeTOTP, Identifier: "totp_dev", CredentialData: "secret",
+	})
+
+	list, err := ListCredentials(ctx, mock, identity.ListCredentialsInput{
+		SubjectID: subjectID,
+		Realm:     "admins",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(list) != 2 {
+		t.Fatalf("expected 2 credentials, got %d", len(list))
+	}
+	found := make(map[identity.IdentityType]string)
+	for _, c := range list {
+		found[c.Type] = c.Identifier
+	}
+	if found[identity.TypePassword] != "admin" || found[identity.TypeTOTP] != "totp_dev" {
+		t.Fatalf("unexpected credential content: %v", found)
+	}
+}
+
+func TestListCredentialsEmpty(t *testing.T) {
+	gen, err := idgen.New(1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	mock := store.NewMockStore(gen)
+	ctx := context.Background()
+
+	subjectID, _ := mock.CreateSubject(ctx)
+
+	list, err := ListCredentials(ctx, mock, identity.ListCredentialsInput{
+		SubjectID: subjectID,
+		Realm:     "empty",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(list) != 0 {
+		t.Fatalf("expected empty list, got %d", len(list))
+	}
+}
+
+func TestListCredentialsSubjectNotFound(t *testing.T) {
+	gen, err := idgen.New(1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	mock := store.NewMockStore(gen)
+	ctx := context.Background()
+
+	list, err := ListCredentials(ctx, mock, identity.ListCredentialsInput{
+		SubjectID: 999,
+		Realm:     "users",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(list) != 0 {
+		t.Fatalf("expected empty list for non-existent subject, got %d", len(list))
+	}
+}

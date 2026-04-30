@@ -23,8 +23,8 @@ items:
   - slug: credential-crud
     description: BindCredential 编排（含唯一性校验）+ ListCredentials 编排（含敏感数据脱敏）+ 完整凭证生命周期测试
     depends_on: [domain-and-crypto]
-    status: planned
-    feature: null
+    status: done
+    feature: 2026-04-30-credential-crud
     minimal_loop: false
 
   - slug: core-api

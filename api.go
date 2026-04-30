@@ -28,3 +28,18 @@ type GetOrInitSubjectOutput struct {
 	SubjectID int64 // 已有或新创建的 subject_id
 	IsNewUser bool  // 是否为新注册
 }
+
+// BindCredentialInput 绑定凭证入参
+type BindCredentialInput struct {
+	SubjectID      int64        // 目标 subject
+	Realm          string       // 领域
+	IdentityType   IdentityType // 凭证类型
+	Identifier     string       // 标识符
+	CredentialData string       // 需加密存储的凭证数据，第三方登录可为空
+}
+
+// ListCredentialsInput 列出凭证入参
+type ListCredentialsInput struct {
+	SubjectID int64  // 目标 subject
+	Realm     string // 领域
+}
