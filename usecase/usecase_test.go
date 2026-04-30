@@ -3,11 +3,13 @@ package usecase
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/modern-magic-go/identity"
 	"github.com/modern-magic-go/identity/internal/crypto"
 	"github.com/modern-magic-go/identity/internal/idgen"
 	"github.com/modern-magic-go/identity/internal/store"
+	"github.com/pquerna/otp/totp"
 )
 
 func setupVerifyFixture(t *testing.T) (*store.MockStore, map[identity.IdentityType]crypto.CredentialVerifier) {
@@ -209,5 +211,247 @@ func TestEndToEndCreateAndVerify(t *testing.T) {
 	}
 	if verifyOut.SubjectID != subjectID {
 		t.Fatalf("SubjectID mismatch: %d vs %d", verifyOut.SubjectID, subjectID)
+	}
+}
+
+func setupTOTPFixture(t *testing.T) (*store.MockStore, map[identity.IdentityType]crypto.CredentialVerifier, string) {
+	t.Helper()
+	gen, err := idgen.New(1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	mock := store.NewMockStore(gen)
+	verifiers := map[identity.IdentityType]crypto.CredentialVerifier{
+		identity.TypePassword: &crypto.Bcrypt{},
+		identity.TypeTOTP:     &crypto.TOTP{},
+	}
+	secret, _, err := crypto.GenerateTOTPKey("MyApp", "alice")
+	if err != nil {
+		t.Fatal(err)
+	}
+	return mock, verifiers, secret
+}
+
+func TestVerifyCredentialTOTPSuccess(t *testing.T) {
+	store, verifiers, secret := setupTOTPFixture(t)
+	ctx := context.Background()
+
+	subjectID, err := store.CreateSubject(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = store.BindCredential(ctx, &identity.Credential{
+		SubjectID:      subjectID,
+		Realm:          "admins",
+		IdentityType:   identity.TypeTOTP,
+		Identifier:     "totp_device",
+		CredentialData: secret,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	code, err := totp.GenerateCode(secret, time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	out, err := VerifyCredential(ctx, store, verifiers, identity.VerifyInput{
+		Realm:        "admins",
+		IdentityType: identity.TypeTOTP,
+		Identifier:   "totp_device",
+		InputData:    code,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !out.Success {
+		t.Fatal("expected Success=true for correct TOTP code")
+	}
+	if out.SubjectID != subjectID {
+		t.Fatalf("expected SubjectID=%d, got %d", subjectID, out.SubjectID)
+	}
+}
+
+func TestVerifyCredentialTOTPWrongCode(t *testing.T) {
+	store, verifiers, secret := setupTOTPFixture(t)
+	ctx := context.Background()
+
+	subjectID, err := store.CreateSubject(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = store.BindCredential(ctx, &identity.Credential{
+		SubjectID:      subjectID,
+		Realm:          "admins",
+		IdentityType:   identity.TypeTOTP,
+		Identifier:     "totp_device",
+		CredentialData: secret,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	out, err := VerifyCredential(ctx, store, verifiers, identity.VerifyInput{
+		Realm:        "admins",
+		IdentityType: identity.TypeTOTP,
+		Identifier:   "totp_device",
+		InputData:    "000000",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if out.Success {
+		t.Fatal("expected Success=false for wrong TOTP code")
+	}
+	if out.ErrorCode != "INVALID_CREDENTIAL" {
+		t.Fatalf("expected ErrorCode=INVALID_CREDENTIAL, got %s", out.ErrorCode)
+	}
+}
+
+func TestVerifyCredentialTOTPNoVerifier(t *testing.T) {
+	gen, err := idgen.New(1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	mock := store.NewMockStore(gen)
+	verifiers := map[identity.IdentityType]crypto.CredentialVerifier{
+		identity.TypePassword: &crypto.Bcrypt{},
+	}
+	ctx := context.Background()
+
+	subjectID, err := mock.CreateSubject(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	secret, _, _ := crypto.GenerateTOTPKey("MyApp", "alice")
+	mock.BindCredential(ctx, &identity.Credential{
+		SubjectID:      subjectID,
+		Realm:          "admins",
+		IdentityType:   identity.TypeTOTP,
+		Identifier:     "totp_device",
+		CredentialData: secret,
+	})
+
+	out, err := VerifyCredential(ctx, mock, verifiers, identity.VerifyInput{
+		Realm:        "admins",
+		IdentityType: identity.TypeTOTP,
+		Identifier:   "totp_device",
+		InputData:    "123456",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if out.Success {
+		t.Fatal("expected Success=false when TOTP verifier not registered")
+	}
+	if out.ErrorCode != "UNSUPPORTED_TYPE" {
+		t.Fatalf("expected ErrorCode=UNSUPPORTED_TYPE, got %s", out.ErrorCode)
+	}
+}
+
+func TestVerifyCredentialTOTPRealmIsolation(t *testing.T) {
+	store, verifiers, secret := setupTOTPFixture(t)
+	ctx := context.Background()
+
+	subjectID, err := store.CreateSubject(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = store.BindCredential(ctx, &identity.Credential{
+		SubjectID:      subjectID,
+		Realm:          "realm_a",
+		IdentityType:   identity.TypeTOTP,
+		Identifier:     "totp_device",
+		CredentialData: secret,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	code, _ := totp.GenerateCode(secret, time.Now())
+	out, err := VerifyCredential(ctx, store, verifiers, identity.VerifyInput{
+		Realm:        "realm_b",
+		IdentityType: identity.TypeTOTP,
+		Identifier:   "totp_device",
+		InputData:    code,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if out.Success {
+		t.Fatal("expected Success=false for wrong realm")
+	}
+	if out.ErrorCode != "CREDENTIAL_NOT_FOUND" {
+		t.Fatalf("expected ErrorCode=CREDENTIAL_NOT_FOUND, got %s", out.ErrorCode)
+	}
+}
+
+func TestTwoFactorAuthPasswordAndTOTP(t *testing.T) {
+	store, verifiers, secret := setupTOTPFixture(t)
+	ctx := context.Background()
+
+	subjectID, err := store.CreateSubject(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	hash, _ := crypto.Hash("admin123", crypto.DefaultCost)
+	err = store.BindCredential(ctx, &identity.Credential{
+		SubjectID:      subjectID,
+		Realm:          "admins",
+		IdentityType:   identity.TypePassword,
+		Identifier:     "admin",
+		CredentialData: hash,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = store.BindCredential(ctx, &identity.Credential{
+		SubjectID:      subjectID,
+		Realm:          "admins",
+		IdentityType:   identity.TypeTOTP,
+		Identifier:     "totp_device_1",
+		CredentialData: secret,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	out1, err := VerifyCredential(ctx, store, verifiers, identity.VerifyInput{
+		Realm:        "admins",
+		IdentityType: identity.TypePassword,
+		Identifier:   "admin",
+		InputData:    "admin123",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !out1.Success {
+		t.Fatal("expected PASSWORD verification to succeed")
+	}
+	if out1.SubjectID != subjectID {
+		t.Fatalf("PASSWORD SubjectID mismatch: %d vs %d", out1.SubjectID, subjectID)
+	}
+
+	code, err := totp.GenerateCode(secret, time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	out2, err := VerifyCredential(ctx, store, verifiers, identity.VerifyInput{
+		Realm:        "admins",
+		IdentityType: identity.TypeTOTP,
+		Identifier:   "totp_device_1",
+		InputData:    code,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !out2.Success {
+		t.Fatal("expected TOTP verification to succeed")
+	}
+	if out2.SubjectID != subjectID {
+		t.Fatalf("TOTP SubjectID mismatch: %d vs %d", out2.SubjectID, subjectID)
 	}
 }

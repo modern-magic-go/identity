@@ -1,0 +1,80 @@
+steps:
+  - description: "新增 internal/crypto/totp.go：TOTP struct 实现 CredentialVerifier + GenerateTOTPKey 密钥生成函数；go get github.com/pquerna/otp"
+    dimension: "计算节点（TOTP Verifier）"
+    status: done
+    exit_signal: "TOTP 通过 implements CredentialVerifier 编译断言"
+
+  - description: "新增 internal/crypto/totp_test.go：密钥生成正确性、Verify 正确码通过、Verify 错误码拒绝"
+    dimension: "测试（单元测试）"
+    status: done
+    exit_signal: "go test ./internal/crypto/... 通过"
+
+  - description: "扩展 usecase/usecase_test.go：verifier map 加 TypeTOTP → 创建 subject → 生成 TOTP 密钥 → BindCredential → VerifyCredential 校验 TOTP → 成功；错误码拒绝"
+    dimension: "测试（编排层集成）"
+    status: done
+    exit_signal: "go test ./usecase/... 通过"
+
+  - description: "新增 2FA 场景测试：同一 subject 绑 PASSWORD + TOTP → 分别验证 → 双因子场景完整性"
+    dimension: "测试（端到端）"
+    status: done
+    exit_signal: "go test ./... 全部通过"
+
+checks:
+  - description: "无 TOTP 类型导出到根包"
+    grep_target: "identity\\.TOTP|type TOTP"
+    exclude_path: "internal/crypto/totp.go"
+    expect: "zero match"
+    status: passed
+
+  - description: "无 usecase 代码修改"
+    git_diff_target: "usecase/verify_credential.go usecase/get_or_init_subject.go"
+    expect: "zero diff"
+    status: passed
+
+  - description: "无 model.go / store.go / api.go / errors.go 修改"
+    git_diff_target: "model.go store.go api.go errors.go"
+    expect: "zero diff"
+    status: passed
+
+  - description: "无 QR 码 / 图片生成代码"
+    grep_target: "image|qrcode|PNG|Encode"
+    exclude_path: "_test.go"
+    expect: "zero match"
+    status: passed
+
+  - description: "无 HOTP 实现"
+    grep_target: "HOTP|hotp|counter"
+    expect: "zero match"
+    status: passed
+
+  - description: "S1: GenerateTOTPKey 返回 non-empty secret 和 otpauth:// URL"
+    scenario: "S1 密钥生成正确性"
+    status: passed
+
+  - description: "S2: TOTP.Verify 正确码返回 true"
+    scenario: "S2 正确码通过"
+    status: passed
+
+  - description: "S3: TOTP.Verify 错误码返回 false"
+    scenario: "S3 错误码拒绝"
+    status: passed
+
+  - description: "S4: VerifyCredential(Type=TOTP, InputData=正确码) → Success=true"
+    scenario: "S4 编排层集成正确"
+    status: passed
+
+  - description: "S5: VerifyCredential(Type=TOTP, InputData=错误码) → ErrorCode=INVALID_CREDENTIAL"
+    scenario: "S5 编排层集成错误"
+    status: passed
+
+  - description: "S6: verifier map 不含 TypeTOTP → UNSUPPORTED_TYPE"
+    scenario: "S6 未注册 Verifier"
+    status: passed
+
+  - description: "S7: 同一 subject 绑 PASSWORD + TOTP → 两次 VerifyCredential 均成功"
+    scenario: "S7 2FA 双因素"
+    status: passed
+
+  - description: "S8: Realm A 绑 TOTP → Realm B 查不到"
+    scenario: "S8 Realm 隔离"
+    status: passed

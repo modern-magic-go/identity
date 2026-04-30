@@ -14,7 +14,7 @@
 
 ## 已知坑
 
-- （待补充）
+- `go get` 某些外部库（如 `golang.org/x/crypto`、`pquerna/otp`）时可能触发 Go 版本自动升级。执行 `go get` 后需检查 `go.mod` 的 `go` 行是否被意外提升，若用户未说明允许升级则手动回退
 
 ## UI 验证要求
 

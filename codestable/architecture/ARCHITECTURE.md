@@ -1,6 +1,6 @@
 # modern-magic-go/identity 架构总入口
 
-> 状态：活跃（2026-04-30 password-verify 最小闭环完成）
+> 状态：活跃（2026-04-30 totp-auth 完成）
 > 最后更新：2026-04-30
 
 ## 1. 项目简介
@@ -20,6 +20,9 @@
 | VerifyInput / VerifyOutput | struct | 凭证校验 API 入/出参 |
 | GetOrInitSubjectInput / GetOrInitSubjectOutput | struct | 静默注册 API 入/出参 |
 | MockStore | struct | 内存 IdentityStore 实现（internal/store） |
+| TOTP | struct | 实现 CredentialVerifier 的 TOTP 动态码校验器（internal/crypto） |
+| TOTP Secret | `string` | base32 编码的 TOTP 密钥，存储为 CredentialData |
+| TOTP Code | `string` | 用户设备每 30 秒生成的 6 位数字，即 VerifyInput.InputData |
 
 ## 3. 子系统 / 模块索引
 
@@ -44,6 +47,7 @@
 
 - `verifier.go` — CredentialVerifier 接口（Type / Verify）
 - `bcrypt.go` — bcrypt 实现（封装 `golang.org/x/crypto/bcrypt`），暴露 `Hash()` / `Verify()` 函数 + `Bcrypt` 结构体实现 CredentialVerifier
+- `totp.go` — TOTP 实现（封装 `pquerna/otp`），`TOTP` 结构体实现 CredentialVerifier + `GenerateTOTPKey(issuer, accountName)` 生成密钥对
 
 ### `internal/store`（内部）
 
@@ -51,7 +55,7 @@
 
 ### roadmap 规划
 
-- `codestable/roadmap/identity-core/` — 5 条子 feature 拆解，当前 f1-f2 已完成
+- `codestable/roadmap/identity-core/` — 5 条子 feature 拆解，当前 f1-f3 已完成
 
 ## 4. 关键架构决定
 
@@ -68,8 +72,9 @@
 - 不存储用户画像（昵称/头像等）
 - usecase 不直接调用 IDGenerator——ID 生成由 store 实现内部持有
 - CredentialVerifier 通过 map 注入——扩展新验证类型只需追加 map 条目
+- TOTP secret 存储为明文 base32——加密存储由调用方仓储层负责
 - Go 版本 ≥ 1.25.0（受 `golang.org/x/crypto` 约束）
-- 外部依赖：`bwmarrin/snowflake`（ID 生成）、`golang.org/x/crypto`（bcrypt）
+- 外部依赖：`bwmarrin/snowflake`（ID 生成）、`golang.org/x/crypto`（bcrypt）、`github.com/pquerna/otp`（TOTP）
 
 ## 6. 当前实现状态
 
@@ -77,6 +82,6 @@
 |---------|------|---------|
 | domain-and-crypto（领域模型 + 密码学基础） | ✅ done | identity-core f1 |
 | password-verify（密码校验编排 + MockStore） | ✅ done | identity-core f2 |
-| totp-auth（TOTP 2FA） | ⬜ planned | identity-core f3 |
+| totp-auth（TOTP 2FA） | ✅ done | identity-core f3 |
 | credential-crud（凭证管理） | ⬜ planned | identity-core f4 |
 | core-api（公共 API 组装） | ⬜ planned | identity-core f5 |

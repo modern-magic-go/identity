@@ -16,8 +16,8 @@ items:
   - slug: totp-auth
     description: TOTP 密钥生成 + code 验证 + 注册 TOTP Verifier + 扩展 VerifyCredential 支持 TOTP 类型 + 2FA 场景测试
     depends_on: [domain-and-crypto, password-verify]
-    status: planned
-    feature: null
+    status: done
+    feature: 2026-04-30-totp-auth
     minimal_loop: false
 
   - slug: credential-crud
