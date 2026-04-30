@@ -245,7 +245,7 @@ func (c *IdentityCore) ListCredentials(ctx context.Context, input ListCredential
 
 | # | slug | 描述 | 依赖 | 最小闭环 |
 |---|------|------|------|----------|
-| 1 | `domain-and-crypto` | 领域模型（SubjectID/Realm/IdentityType/Credential/CredentialSummary）+ 错误哨兵 + IdentityStore 接口 + IDGenerator 接口 + CredentialVerifier 接口 + Snowflake 实现 + bcrypt 实现 | 无 | |
+| 1 | `domain-and-crypto` | 领域模型（SubjectID/Realm/IdentityType/Credential/CredentialSummary）+ 错误哨兵 + IdentityStore 接口 + IDGenerator 接口 + CredentialVerifier 接口 + Snowflake 实现 + bcrypt 实现 | 无 | ✓ done |
 | 2 | `password-verify` | VerifyCredential（密码校验 + 凭证查找编排）+ GetOrInitializeSubjectID（静默注册编排）+ 内存 Mock IdentityStore + 端到端测试：创建主体→绑定密码→校验凭证 | f1 | ✓ |
 | 3 | `totp-auth` | TOTP 密钥生成 + code 验证 + 注册 TOTP 到 CredentialVerifier 策略 + 扩展 VerifyCredential 支持 TOTP 类型 + 2FA 场景测试 | f1, f2 | |
 | 4 | `credential-crud` | BindCredential 编排（含唯一性校验）+ ListCredentials 编排（含敏感数据脱敏）+ 完整凭证生命周期测试 | f1 | |

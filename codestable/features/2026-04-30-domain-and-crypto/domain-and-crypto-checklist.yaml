@@ -1,0 +1,82 @@
+steps:
+  - step: 加依赖
+    description: go get snowflake + bcrypt，go mod tidy 验证
+    status: done
+    exit_signal: go mod tidy 无错误退出，go.sum 更新
+
+  - step: 搭建领域模型
+    description: model.go（SubjectID/Realm/IdentityType/Credential/CredentialSummary）+ errors.go（5 哨兵）+ store.go（IdentityStore 接口）
+    status: done
+    exit_signal: go build ./... 编译通过
+
+  - step: 实现 Snowflake
+    description: internal/idgen/snowflake.go — Snowflake 结构体实现 IDGenerator 接口
+    status: done
+    exit_signal: 连续生成 1000 个 ID 全唯一、无 panic
+
+  - step: 实现 bcrypt
+    description: internal/crypto/bcrypt.go — Hash/Verify 函数 + Bcrypt 结构体实现 CredentialVerifier 接口
+    status: done
+    exit_signal: Hash→Verify 往返通过；错误密码被拒绝
+
+  - step: 测试覆盖
+    description: Snowflake 唯一性测试 + bcrypt 往返测试 + 错误哨兵语义测试
+    status: done
+    exit_signal: go test ./... 全部通过
+
+checks:
+  - id: C1
+    description: Snowflake 连续生成 1000 个 ID 全部唯一且为正 int64
+    status: passed
+
+  - id: C2
+    description: BcryptHash 返回以 $2a$10$ 开头的 60 字符 hash
+    status: passed
+
+  - id: C3
+    description: BcryptHash→BcryptVerify 正确密码返回 nil
+    status: passed
+
+  - id: C4
+    description: BcryptVerify 错误密码返回 ErrMismatchedHashAndPassword
+    status: passed
+
+  - id: C5
+    description: go build ./... 编译通过，无循环引用
+    status: passed
+
+  - id: C6
+    description: errors.Is(ErrInvalidCredential, ErrInvalidCredential) 为 true
+    status: passed
+
+  - id: C7
+    description: 不同哨兵 errors.Is 互相返回 false
+    status: passed
+
+  - id: C8
+    description: BcryptHash 空密码允许通过，cost 边界行为正确
+    status: passed
+
+  - id: C9
+    description: BcryptHash cost<4 静默升至 MinCost，正常返回 hash
+    status: passed
+
+  - id: C10
+    description: NewSnowflake 负数 nodeID 返回 error
+    status: passed
+
+  - id: C11
+    description: BcryptVerify 非法 hash 格式返回 error
+    status: passed
+
+  - id: REV1
+    description: grep -r "VerifyCredential|GetOrInit" 应 zero match（无业务编排）
+    status: passed
+
+  - id: REV2
+    description: grep -r "totp|TOTP" 应 zero match（TOTP 仅常量声明，无实现）
+    status: passed
+
+  - id: REV3
+    description: 无 MySQL/Redis 连接代码（无真实存储）
+    status: passed

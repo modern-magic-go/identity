@@ -2,8 +2,8 @@ items:
   - slug: domain-and-crypto
     description: 领域模型 + 错误哨兵 + IdentityStore/IDGenerator/CredentialVerifier 三个接口 + Snowflake 实现 + bcrypt 实现。可独立测试：snowflake 生成唯一 ID、bcrypt 哈希与比对
     depends_on: []
-    status: planned
-    feature: null
+    status: done
+    feature: 2026-04-30-domain-and-crypto
     minimal_loop: false
 
   - slug: password-verify
