@@ -131,6 +131,11 @@ CREATE TABLE `identity_credential` (
 
 返回结果：`Success` (bool) 或唯一性冲突报错。
 
+> **⚠️ 已知缺口：缺少逆操作**  
+> 当前 `IdentityStore` 接口未定义 `RemoveCredential` 方法，无法解除已有凭证的绑定。  
+> 这导致**换绑场景**（如用户更换手机号）无法直接支持——必须先删除旧凭证再绑定新凭证。  
+> 当前需调用方自行在仓储层实现删除逻辑，或等待后续迭代在 `IdentityStore` 中增加该接口。
+
 ### 4.4 `ListCredentials`（获取可用验证因子）
 
 职能：查询某个 subject_id 在当前 Realm 下拥有哪些凭证（抹除敏感数据），供上层业务决定是否需要发起 2FA（如发现有 `type=TOTP`，则要求用户进行二次验证）。
@@ -138,6 +143,26 @@ CREATE TABLE `identity_credential` (
 请求参数：`subject_id`、`Realm`
 
 返回结果：`[]CredentialSummary {Type, Identifier}`
+
+### 4.5 `LookupSubject` — 纯查询 SubjectID（🚧 待支持）
+
+职能：仅根据凭证三元组查询 SubjectID，**不自动创建**。区别于 `GetOrInitializeSubjectID` 的"不存在就注册"语义。
+
+请求参数：
+
+- `Realm` (string)
+- `IdentityType` (string)
+- `Identifier` (string)
+
+返回结果：
+
+- `subject_id` (int64) — 找到时返回
+- 未找到时返回 `ErrSubjectNotFound`
+
+> **⚠️ 已知缺口：缺少纯查询接口**  
+> 当前所有凭证 → SubjectID 的查询路径只有 `GetOrInitializeSubjectID`（自动创建）和 `VerifyCredential`（需 InputData，语义是验证）。  
+> 上层无法做到"先查这个微信有没有绑定过用户，有则登录，无则引导用户选择注册或绑定已有账号"。  
+> 缺少 `LookupSubject` 导致无法优雅处理"一人多凭证 vs 一人多 Subject"的账号关联场景。
 
 ## 5. 典型业务流程编排指南（致上层调用方）
 
@@ -149,7 +174,7 @@ CREATE TABLE `identity_credential` (
 2. 底座返回验证成功，并返回 `subject_id: 888`。
 3. 上层调用底座 `ListCredentials(subject_id=888, realm="admins")`。
 4. 上层发现该 subject_id 列表中存在 `type="TOTP"`。
-5. 上层挂起当前登录流程，向前端下发挑战：“请输入验证器代码”。
+5. 上层挂起当前登录流程，向前端下发挑战："请输入验证器代码"。
 6. 前端提交代码，上层再次调用底座 `VerifyCredential(realm="admins", type="TOTP", identifier="totp_device_1", input="837261")`。
 7. 验证通过，上层签发 Token。
 
@@ -161,6 +186,35 @@ CREATE TABLE `identity_credential` (
 2. 上层优先按 UnionID 查找：调用底座 `VerifyCredential(realm="global", type="WECHAT_UNIONID", identifier="u_xxx")`。
 3. 若找到 subject_id：登录成功。上层可异步调用 `BindCredential` 顺手把当前小程序的 OpenID 绑定到该 subject_id 下的指定 Realm。
 4. 若没找到 UnionID：降级使用 OpenID 调用 `GetOrInitializeSubjectID(realm="c_users", type="WECHAT_OPENID", identifier="o_xxx")` 获取/生成 subject_id，随后异步将 UnionID 绑定至该 subject_id。
+
+### 5.3 场景：换绑手机号（🚧 待支持）
+
+当前底座缺少 `RemoveCredential` 能力，换绑手机号需要上层自行在仓储层实现。
+
+预期完整流程：
+
+1. 上层调用底座 `VerifyCredential(realm, TypeSMS, oldPhone, code)` 验证旧手机。
+2. 验证通过后，上层在仓储层删除旧凭证（`DELETE FROM identity_credential WHERE realm=? AND identity_type='SMS' AND identifier=?`）。
+3. 上层调用底座 `BindCredential(subjectID, realm, TypeSMS, newPhone, "")` 绑定新手机号。
+
+> 当前 `BindCredential` 不会自动解除旧凭证，直接绑定新手机号会导致该 subject 同时持有两个手机号，不符合业务预期。
+
+### 5.4 场景：微信静默登录后强制绑手机号 — Subject 分裂风险（🚧 待支持）
+
+**问题：** 新用户通过微信静默登录（`GetOrInitializeSubjectID`）创建了 Subject **A**。随后业务强制绑定手机号，但该手机号已在 Subject **B** 下注册过 → `BindCredential` 返回 `ErrDuplicateCredential`。一个真实用户对应两个 Subject，模块内无法合并。
+
+**根因：** 缺少 `LookupSubject` 纯查询接口，上层无法在静默注册前先判断该凭证是否已关联到其他 Subject。
+
+**预期正确流程（依赖 `LookupSubject`）：**
+
+1. 收到微信静默请求，先调 `LookupSubject(realm, TypeWECHAT_OPENID, openID)`。
+2. 若返回 SubjectID → 直接登录，**不执行手机号强制绑定**。
+3. 若返回 `ErrSubjectNotFound` → 调 `GetOrInitializeSubjectID` 创建新 Subject。
+4. 随后强制绑手机时，先调 `LookupSubject(realm, TypeSMS, phone)`。
+5. 若手机号已被其他 Subject 绑定 → 返回冲突，由上层决定是否引导用户走"账号关联"流程。
+6. 若无冲突 → 执行 `BindCredential` 绑定手机号。
+
+> 缺少 `LookupSubject` 的后果：上层在面对"凭证已存在但自己不知道"的场景时，只能盲目地调 `GetOrInitializeSubjectID`，导致 Subject 分裂。
 
 ## 6. 技术栈与安全规范建议（Go 语言生态）
 
