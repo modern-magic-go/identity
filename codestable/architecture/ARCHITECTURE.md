@@ -1,6 +1,6 @@
 # modern-magic-go/identity 架构总入口
 
-> 状态：活跃（2026-04-30 credential-crud 完成）
+> 状态：活跃（2026-04-30 core-api 完成，5/5 子 feature 全部闭环）
 > 最后更新：2026-04-30
 
 ## 1. 项目简介
@@ -23,6 +23,8 @@
 | TOTP | struct | 实现 CredentialVerifier 的 TOTP 动态码校验器（internal/crypto） |
 | TOTP Secret | `string` | base32 编码的 TOTP 密钥，存储为 CredentialData |
 | TOTP Code | `string` | 用户设备每 30 秒生成的 6 位数字，即 VerifyInput.InputData |
+| IdentityCore | struct | 库的公共入口（core/ 包），组合 store + verifier map，对外暴露 4 方法 |
+| NewIdentityCore | func | 构造函数，接收 IdentityStore，内建 Bcrypt + TOTP verifier |
 
 ## 3. 子系统 / 模块索引
 
@@ -39,6 +41,10 @@
 - `get_or_init_subject.go` — GetOrInitializeSubjectID 函数：查凭证 → 已有返回 / 新创建 subject → 绑凭证
 - `bind_credential.go` — BindCredential 函数：从 BindCredentialInput 构造 *Credential → 委托 store.BindCredential
 - `list_credentials.go` — ListCredentials 函数：委托 store.ListBySubjectRealm → 返回脱敏列表
+
+### `core/`（公共入口）
+
+- `core.go` — IdentityCore 结构体 + NewIdentityCore 构造函数（内建 Bcrypt + TOTP verifier），4 方法委托 usecase
 
 ### `internal/idgen`（内部）
 
@@ -57,7 +63,7 @@
 
 ### roadmap 规划
 
-- `codestable/roadmap/identity-core/` — 5 条子 feature 拆解，当前 f1-f3 已完成
+- `codestable/roadmap/identity-core/` — 5 条子 feature 全部完成
 
 ## 4. 关键架构决定
 
@@ -65,7 +71,7 @@
 2. **Realm 隔离**：不用 TenantID / AppID，用 Realm 作为账号池物理隔离单位
 3. **仓储分离**：模块定义 IdentityStore 接口，真实持久化由调用方注入
 4. **Headless**：不管理 Token/Session，不存储用户画像，不编排登录流程
-5. **纯函数编排**：usecase 为独立纯函数（参数注入依赖），f5 由 IdentityCore 结构体包裹
+5. **纯函数编排**：usecase 为独立纯函数（参数注入依赖），`core.IdentityCore` 结构体包裹为公共入口
 
 ## 5. 已知约束 / 硬边界
 
@@ -86,4 +92,4 @@
 | password-verify（密码校验编排 + MockStore） | ✅ done | identity-core f2 |
 | totp-auth（TOTP 2FA） | ✅ done | identity-core f3 |
 | credential-crud（凭证管理） | ✅ done | identity-core f4 |
-| core-api（公共 API 组装） | ⬜ planned | identity-core f5 |
+| core-api（公共 API 组装） | ✅ done | identity-core f5 |

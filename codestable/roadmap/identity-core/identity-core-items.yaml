@@ -30,6 +30,6 @@ items:
   - slug: core-api
     description: IdentityCore 结构体 + NewIdentityCore 构造函数 + 根包公开 API 暴露 4 方法 + 集成测试（PRD 5.1 密码+TOTP 双因素场景）
     depends_on: [password-verify, totp-auth, credential-crud]
-    status: planned
-    feature: null
+    status: done
+    feature: 2026-04-30-core-api
     minimal_loop: false

@@ -1,0 +1,108 @@
+feature: 2026-04-30-core-api
+created: 2026-04-30
+
+steps:
+  - action: "结构体骨架：core/core.go 定义 IdentityCore struct + NewIdentityCore 构造函数 + 4 个方法"
+    exit_signal: "go build ./... 编译通过"
+    status: done
+
+  - action: "委托实现：4 个方法填充为 usecase 函数调用"
+    exit_signal: "编译通过 + 已有 usecase 测试继续全绿"
+    status: done
+
+  - action: "集成测试：PRD 5.1 双因素场景通过 IdentityCore 方法端到端跑通"
+    exit_signal: "core_api_test.go 中密码+TOTP 完整流程 PASS"
+    status: done
+
+  - action: "测试覆盖：补齐绑定→列表→校验完整生命周期测试"
+    exit_signal: "所有验收场景 C1-C11 有可观察证据"
+    status: done
+
+checks:
+  - item: "IdentityCore struct 在 core/core.go 定义"
+    source: 名词契约
+    status: passed
+
+  - item: "NewIdentityCore(store) *IdentityCore 签名正确"
+    source: 名词契约
+    status: passed
+
+  - item: "VerifyCredential 方法签名：func(ctx, VerifyInput) (VerifyOutput, error)"
+    source: 名词契约
+    status: passed
+
+  - item: "GetOrInitializeSubjectID 方法签名：func(ctx, GetOrInitSubjectInput) (GetOrInitSubjectOutput, error)"
+    source: 名词契约
+    status: passed
+
+  - item: "BindCredential 方法签名：func(ctx, BindCredentialInput) error"
+    source: 名词契约
+    status: passed
+
+  - item: "ListCredentials 方法签名：func(ctx, ListCredentialsInput) ([]CredentialSummary, error)"
+    source: 名词契约
+    status: passed
+
+  - item: "NewIdentityCore 内建默认 Bcrypt + TOTP verifier"
+    source: 编排骨架
+    status: passed
+
+  - item: "4 个方法委托给对应 usecase 函数"
+    source: 编排骨架
+    status: passed
+
+  - item: "core/core.go — IdentityCore struct 存在"
+    source: 挂载点
+    status: passed
+
+  - item: "core/core.go — NewIdentityCore 函数存在"
+    source: 挂载点
+    status: passed
+
+  - item: "core/core.go — 4 个方法均存在"
+    source: 挂载点
+    status: passed
+
+  - item: "无新增 usecase 编排逻辑"
+    source: 范围守护
+    status: passed
+
+  - item: "无新增 store 方法/接口变动"
+    source: 范围守护
+    status: passed
+
+  - item: "无新增 crypto"
+    source: 范围守护
+    status: passed
+
+  - item: "CredentialVerifier 接口保持在 internal/crypto"
+    source: 范围守护
+    status: passed
+
+  - item: "C1 编译通过无 panic"
+    source: 验收场景
+    status: passed
+
+  - item: "C2 VerifyCredential 正常路径"
+    source: 验收场景
+    status: passed
+
+  - item: "C3 GetOrInitializeSubjectID 正常路径"
+    source: 验收场景
+    status: passed
+
+  - item: "C4 BindCredential 正常路径"
+    source: 验收场景
+    status: passed
+
+  - item: "C5 ListCredentials 正常路径"
+    source: 验收场景
+    status: passed
+
+  - item: "C6-C10 边界与错误路径"
+    source: 验收场景
+    status: passed
+
+  - item: "C11 PRD 5.1 双因素集成场景"
+    source: 验收场景
+    status: passed
