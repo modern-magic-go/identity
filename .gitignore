@@ -1,0 +1,3 @@
+# CodeStable 体系由 workspace 层管理，不在本项目内
+codestable/
+AGENTS.md
