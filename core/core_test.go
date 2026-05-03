@@ -7,26 +7,17 @@ import (
 
 	"github.com/modern-magic-go/identity"
 	"github.com/modern-magic-go/identity/internal/crypto"
-	"github.com/modern-magic-go/identity/internal/idgen"
 	"github.com/modern-magic-go/identity/internal/store"
 	"github.com/pquerna/otp/totp"
 )
 
 func setupCore(t *testing.T) *IdentityCore {
 	t.Helper()
-	gen, err := idgen.New(1)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return NewIdentityCore(store.NewMockStore(gen))
+	return NewIdentityCore(store.NewMockStore())
 }
 
 func TestVerifyCredentialSuccess(t *testing.T) {
-	gen, err := idgen.New(1)
-	if err != nil {
-		t.Fatal(err)
-	}
-	mock := store.NewMockStore(gen)
+	mock := store.NewMockStore()
 	c := NewIdentityCore(mock)
 	ctx := context.Background()
 
@@ -68,11 +59,7 @@ func TestVerifyCredentialSuccess(t *testing.T) {
 }
 
 func TestVerifyCredentialWrongPassword(t *testing.T) {
-	gen, err := idgen.New(1)
-	if err != nil {
-		t.Fatal(err)
-	}
-	mock := store.NewMockStore(gen)
+	mock := store.NewMockStore()
 	c := NewIdentityCore(mock)
 	ctx := context.Background()
 
@@ -125,11 +112,7 @@ func TestVerifyCredentialNotFound(t *testing.T) {
 }
 
 func TestVerifyCredentialInactive(t *testing.T) {
-	gen, err := idgen.New(1)
-	if err != nil {
-		t.Fatal(err)
-	}
-	mock := store.NewMockStore(gen)
+	mock := store.NewMockStore()
 	c := NewIdentityCore(mock)
 	ctx := context.Background()
 
@@ -211,11 +194,7 @@ func TestGetOrInitializeSubjectIDExisting(t *testing.T) {
 }
 
 func TestGetOrInitializeSubjectIDInactive(t *testing.T) {
-	gen, err := idgen.New(1)
-	if err != nil {
-		t.Fatal(err)
-	}
-	mock := store.NewMockStore(gen)
+	mock := store.NewMockStore()
 	c := NewIdentityCore(mock)
 	ctx := context.Background()
 
@@ -227,7 +206,7 @@ func TestGetOrInitializeSubjectIDInactive(t *testing.T) {
 
 	mock.SetInactive(out.SubjectID)
 
-	_, err = c.GetOrInitializeSubjectID(ctx, identity.GetOrInitSubjectInput{
+	_, err := c.GetOrInitializeSubjectID(ctx, identity.GetOrInitSubjectInput{
 		Realm:        "users",
 		IdentityType: identity.TypePassword,
 		Identifier:   "inactive",
@@ -334,11 +313,7 @@ func TestListCredentialsHasItems(t *testing.T) {
 }
 
 func TestListCredentialsEmpty(t *testing.T) {
-	gen, err := idgen.New(1)
-	if err != nil {
-		t.Fatal(err)
-	}
-	mock := store.NewMockStore(gen)
+	mock := store.NewMockStore()
 	c := NewIdentityCore(mock)
 	ctx := context.Background()
 
@@ -373,11 +348,7 @@ func TestListCredentialsSubjectNotFound(t *testing.T) {
 }
 
 func TestListCredentialsIncludesIsActive(t *testing.T) {
-	gen, err := idgen.New(1)
-	if err != nil {
-		t.Fatal(err)
-	}
-	mock := store.NewMockStore(gen)
+	mock := store.NewMockStore()
 	c := NewIdentityCore(mock)
 	ctx := context.Background()
 
@@ -415,11 +386,7 @@ func TestListCredentialsIncludesIsActive(t *testing.T) {
 }
 
 func TestTwoFactorAuthEndToEnd(t *testing.T) {
-	gen, err := idgen.New(1)
-	if err != nil {
-		t.Fatal(err)
-	}
-	mock := store.NewMockStore(gen)
+	mock := store.NewMockStore()
 	c := NewIdentityCore(mock)
 	ctx := context.Background()
 

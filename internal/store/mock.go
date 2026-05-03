@@ -3,22 +3,22 @@ package store
 import (
 	"context"
 	"fmt"
+	"strconv"
+	"sync/atomic"
 
 	"github.com/modern-magic-go/identity"
-	"github.com/modern-magic-go/identity/internal/idgen"
 )
 
 // MockStore 内存 IdentityStore 实现，用于测试和演示
 type MockStore struct {
-	idGen    idgen.IDGenerator
+	nextID   atomic.Int64
 	subjects map[identity.SubjectID]bool
 	creds    map[string]*identity.Credential
 }
 
 // NewMockStore 创建 MockStore 实例
-func NewMockStore(idGen idgen.IDGenerator) *MockStore {
+func NewMockStore() *MockStore {
 	return &MockStore{
-		idGen:    idGen,
 		subjects: make(map[identity.SubjectID]bool),
 		creds:    make(map[string]*identity.Credential),
 	}
@@ -42,10 +42,10 @@ func (m *MockStore) FindByRealmTypeIdentifier(ctx context.Context, realm string,
 	return cred, nil
 }
 
-// CreateSubject 创建新的用户主体，返回生成的 subject_id
+// CreateSubject 创建新的用户主体，返回自增 ID
 func (m *MockStore) CreateSubject(ctx context.Context) (identity.SubjectID, error) {
-	id := m.idGen.Generate()
-	subjectID := identity.SubjectIDFromInt64(id)
+	id := strconv.FormatInt(m.nextID.Add(1), 10)
+	subjectID := identity.SubjectID(id)
 	m.subjects[subjectID] = true
 	return subjectID, nil
 }

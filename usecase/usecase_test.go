@@ -7,18 +7,13 @@ import (
 
 	"github.com/modern-magic-go/identity"
 	"github.com/modern-magic-go/identity/internal/crypto"
-	"github.com/modern-magic-go/identity/internal/idgen"
 	"github.com/modern-magic-go/identity/internal/store"
 	"github.com/pquerna/otp/totp"
 )
 
 func setupVerifyFixture(t *testing.T) (*store.MockStore, map[identity.IdentityType]crypto.CredentialVerifier) {
 	t.Helper()
-	gen, err := idgen.New(1)
-	if err != nil {
-		t.Fatal(err)
-	}
-	mock := store.NewMockStore(gen)
+	mock := store.NewMockStore()
 	verifiers := map[identity.IdentityType]crypto.CredentialVerifier{
 		identity.TypePassword: &crypto.Bcrypt{},
 	}
@@ -142,11 +137,7 @@ func TestVerifyCredentialInactive(t *testing.T) {
 }
 
 func TestGetOrInitSubjectNewUser(t *testing.T) {
-	gen, err := idgen.New(1)
-	if err != nil {
-		t.Fatal(err)
-	}
-	mock := store.NewMockStore(gen)
+	mock := store.NewMockStore()
 	ctx := context.Background()
 
 	out, err := GetOrInitializeSubjectID(ctx, mock, identity.GetOrInitSubjectInput{
@@ -174,11 +165,7 @@ func TestGetOrInitSubjectNewUser(t *testing.T) {
 }
 
 func TestGetOrInitSubjectExistingUser(t *testing.T) {
-	gen, err := idgen.New(1)
-	if err != nil {
-		t.Fatal(err)
-	}
-	mock := store.NewMockStore(gen)
+	mock := store.NewMockStore()
 	ctx := context.Background()
 
 	out1, err := GetOrInitializeSubjectID(ctx, mock, identity.GetOrInitSubjectInput{
@@ -210,11 +197,7 @@ func TestGetOrInitSubjectExistingUser(t *testing.T) {
 }
 
 func TestGetOrInitSubjectInactive(t *testing.T) {
-	gen, err := idgen.New(1)
-	if err != nil {
-		t.Fatal(err)
-	}
-	mock := store.NewMockStore(gen)
+	mock := store.NewMockStore()
 	ctx := context.Background()
 
 	out1, err := GetOrInitializeSubjectID(ctx, mock, identity.GetOrInitSubjectInput{
@@ -278,11 +261,7 @@ func TestEndToEndCreateAndVerify(t *testing.T) {
 
 func setupTOTPFixture(t *testing.T) (*store.MockStore, map[identity.IdentityType]crypto.CredentialVerifier, string) {
 	t.Helper()
-	gen, err := idgen.New(1)
-	if err != nil {
-		t.Fatal(err)
-	}
-	mock := store.NewMockStore(gen)
+	mock := store.NewMockStore()
 	verifiers := map[identity.IdentityType]crypto.CredentialVerifier{
 		identity.TypePassword: &crypto.Bcrypt{},
 		identity.TypeTOTP:     &crypto.TOTP{},
@@ -372,11 +351,7 @@ func TestVerifyCredentialTOTPWrongCode(t *testing.T) {
 }
 
 func TestVerifyCredentialTOTPNoVerifier(t *testing.T) {
-	gen, err := idgen.New(1)
-	if err != nil {
-		t.Fatal(err)
-	}
-	mock := store.NewMockStore(gen)
+	mock := store.NewMockStore()
 	verifiers := map[identity.IdentityType]crypto.CredentialVerifier{
 		identity.TypePassword: &crypto.Bcrypt{},
 	}
@@ -519,11 +494,7 @@ func TestTwoFactorAuthPasswordAndTOTP(t *testing.T) {
 }
 
 func TestBindCredentialSuccess(t *testing.T) {
-	gen, err := idgen.New(1)
-	if err != nil {
-		t.Fatal(err)
-	}
-	mock := store.NewMockStore(gen)
+	mock := store.NewMockStore()
 	ctx := context.Background()
 
 	subjectID, err := mock.CreateSubject(ctx)
@@ -552,16 +523,12 @@ func TestBindCredentialSuccess(t *testing.T) {
 }
 
 func TestBindCredentialDuplicate(t *testing.T) {
-	gen, err := idgen.New(1)
-	if err != nil {
-		t.Fatal(err)
-	}
-	mock := store.NewMockStore(gen)
+	mock := store.NewMockStore()
 	ctx := context.Background()
 
 	subjectID, _ := mock.CreateSubject(ctx)
 
-	err = BindCredential(ctx, mock, identity.BindCredentialInput{
+	err := BindCredential(ctx, mock, identity.BindCredentialInput{
 		SubjectID:      subjectID,
 		Realm:          "users",
 		IdentityType:   identity.TypePassword,
@@ -585,14 +552,10 @@ func TestBindCredentialDuplicate(t *testing.T) {
 }
 
 func TestBindCredentialSubjectNotFound(t *testing.T) {
-	gen, err := idgen.New(1)
-	if err != nil {
-		t.Fatal(err)
-	}
-	mock := store.NewMockStore(gen)
+	mock := store.NewMockStore()
 	ctx := context.Background()
 
-	err = BindCredential(ctx, mock, identity.BindCredentialInput{
+	err := BindCredential(ctx, mock, identity.BindCredentialInput{
 		SubjectID:      identity.SubjectIDFromInt64(999),
 		Realm:          "users",
 		IdentityType:   identity.TypePassword,
@@ -605,11 +568,7 @@ func TestBindCredentialSubjectNotFound(t *testing.T) {
 }
 
 func TestListCredentialsHasCredentials(t *testing.T) {
-	gen, err := idgen.New(1)
-	if err != nil {
-		t.Fatal(err)
-	}
-	mock := store.NewMockStore(gen)
+	mock := store.NewMockStore()
 	ctx := context.Background()
 
 	subjectID, _ := mock.CreateSubject(ctx)
@@ -640,11 +599,7 @@ func TestListCredentialsHasCredentials(t *testing.T) {
 }
 
 func TestListCredentialsEmpty(t *testing.T) {
-	gen, err := idgen.New(1)
-	if err != nil {
-		t.Fatal(err)
-	}
-	mock := store.NewMockStore(gen)
+	mock := store.NewMockStore()
 	ctx := context.Background()
 
 	subjectID, _ := mock.CreateSubject(ctx)
@@ -662,11 +617,7 @@ func TestListCredentialsEmpty(t *testing.T) {
 }
 
 func TestListCredentialsSubjectNotFound(t *testing.T) {
-	gen, err := idgen.New(1)
-	if err != nil {
-		t.Fatal(err)
-	}
-	mock := store.NewMockStore(gen)
+	mock := store.NewMockStore()
 	ctx := context.Background()
 
 	list, err := ListCredentials(ctx, mock, identity.ListCredentialsInput{

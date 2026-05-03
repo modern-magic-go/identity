@@ -5,16 +5,11 @@ import (
 	"testing"
 
 	"github.com/modern-magic-go/identity"
-	"github.com/modern-magic-go/identity/internal/idgen"
 )
 
 func setupMockStore(t *testing.T) *MockStore {
 	t.Helper()
-	gen, err := idgen.New(1)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return NewMockStore(gen)
+	return NewMockStore()
 }
 
 func TestMockStoreCreateSubject(t *testing.T) {
