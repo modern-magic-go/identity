@@ -12,7 +12,7 @@ type VerifyInput struct {
 type VerifyOutput struct {
 	Success   bool      // 校验是否通过
 	SubjectID SubjectID // 仅在 Success=true 时有效
-	ErrorCode string    // ACCOUNT_LOCKED / INVALID_CREDENTIAL / CREDENTIAL_NOT_FOUND
+	ErrorCode string    // ACCOUNT_LOCKED / CREDENTIAL_DISABLED / INVALID_CREDENTIAL / CREDENTIAL_NOT_FOUND
 	ErrorMsg  string    // 人类可读描述
 }
 
@@ -36,6 +36,7 @@ type BindCredentialInput struct {
 	IdentityType   IdentityType // 凭证类型
 	Identifier     string       // 标识符
 	CredentialData string       // 需加密存储的凭证数据，第三方登录可为空
+	Meta           Meta         // 凭证元信息
 }
 
 // ListCredentialsInput 列出凭证入参

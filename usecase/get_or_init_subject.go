@@ -15,7 +15,7 @@ func GetOrInitializeSubjectID(
 ) (identity.GetOrInitSubjectOutput, error) {
 	cred, err := store.FindByRealmTypeIdentifier(ctx, input.Realm, input.IdentityType, input.Identifier)
 	if err == nil {
-		if !cred.IsActive {
+		if !cred.SubjectActive {
 			return identity.GetOrInitSubjectOutput{}, identity.ErrAccountLocked
 		}
 		return identity.GetOrInitSubjectOutput{

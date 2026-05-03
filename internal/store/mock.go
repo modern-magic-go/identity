@@ -35,9 +35,9 @@ func (m *MockStore) FindByRealmTypeIdentifier(ctx context.Context, realm string,
 		return nil, identity.ErrCredentialNotFound
 	}
 	if isActive, exists := m.subjects[cred.SubjectID]; exists {
-		cred.IsActive = isActive
+		cred.SubjectActive = isActive
 	} else {
-		cred.IsActive = true
+		cred.SubjectActive = true
 	}
 	return cred, nil
 }
@@ -62,8 +62,11 @@ func (m *MockStore) BindCredential(ctx context.Context, cred *identity.Credentia
 	}
 
 	if isActive, exists := m.subjects[cred.SubjectID]; exists {
-		cred.IsActive = isActive
+		cred.SubjectActive = isActive
 	} else {
+		cred.SubjectActive = true
+	}
+	if !cred.IsActive {
 		cred.IsActive = true
 	}
 	m.creds[key] = cred
@@ -72,17 +75,13 @@ func (m *MockStore) BindCredential(ctx context.Context, cred *identity.Credentia
 
 // ListBySubjectRealm 列出 subject 在指定 Realm 下的所有凭证（不含敏感数据）
 func (m *MockStore) ListBySubjectRealm(ctx context.Context, subjectID identity.SubjectID, realm string) ([]identity.CredentialSummary, error) {
-	isActive, exists := m.subjects[subjectID]
-	if !exists {
-		isActive = true
-	}
 	var result []identity.CredentialSummary
 	for _, cred := range m.creds {
 		if cred.SubjectID == subjectID && cred.Realm == realm {
 			result = append(result, identity.CredentialSummary{
 				Type:       cred.IdentityType,
 				Identifier: cred.Identifier,
-				IsActive:   isActive,
+				IsActive:   cred.IsActive,
 			})
 		}
 	}

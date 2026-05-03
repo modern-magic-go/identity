@@ -30,6 +30,15 @@ const (
 	TypeSMS           IdentityType = "SMS"
 )
 
+// Subject 用户主体
+type Subject struct {
+	SubjectID SubjectID
+	IsActive  bool
+}
+
+// Meta 凭证附属元信息，key/value 由各 IdentityType 约定
+type Meta map[string]string
+
 // Credential 原子凭证：记录一个 subject 在某 Realm 下的某种登录方式
 type Credential struct {
 	SubjectID      SubjectID
@@ -37,7 +46,9 @@ type Credential struct {
 	IdentityType   IdentityType
 	Identifier     string
 	CredentialData string
-	IsActive       bool
+	IsActive       bool        // 语义：此登录方式是否被禁（第二道闸）
+	SubjectActive  bool        // store 层填充的 Subject 级活跃状态（第一道闸，只读）
+	Meta           Meta        // 凭证元信息，存储层 JSON 序列化
 }
 
 // CredentialSummary 凭证摘要（脱敏后不含 CredentialData）

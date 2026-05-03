@@ -154,8 +154,11 @@ func TestMockStoreFindReturnsIsActive(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if !cred.SubjectActive {
+		t.Fatal("expected SubjectActive=true for active subject")
+	}
 	if !cred.IsActive {
-		t.Fatal("expected IsActive=true for active subject")
+		t.Fatal("expected IsActive=true for credential")
 	}
 
 	store.SetInactive(id)
@@ -163,8 +166,11 @@ func TestMockStoreFindReturnsIsActive(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cred.IsActive {
-		t.Fatal("expected IsActive=false after SetInactive")
+	if cred.SubjectActive {
+		t.Fatal("expected SubjectActive=false after SetInactive")
+	}
+	if !cred.IsActive {
+		t.Fatal("expected IsActive still true (credential-level unaffected)")
 	}
 }
 

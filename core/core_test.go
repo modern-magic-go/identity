@@ -372,6 +372,7 @@ func TestListCredentialsIncludesIsActive(t *testing.T) {
 		t.Fatal("expected IsActive=true in CredentialSummary")
 	}
 
+	// SetInactive 不影响 CredentialSummary.IsActive（仅改变 SubjectActive）
 	mock.SetInactive(out.SubjectID)
 	list, err = c.ListCredentials(ctx, identity.ListCredentialsInput{
 		SubjectID: out.SubjectID,
@@ -380,8 +381,8 @@ func TestListCredentialsIncludesIsActive(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if list[0].IsActive {
-		t.Fatal("expected IsActive=false after SetInactive")
+	if !list[0].IsActive {
+		t.Fatal("SetInactive 不影响 credential-level IsActive，应仍为 true")
 	}
 }
 
@@ -477,5 +478,80 @@ func TestTwoFactorAuthEndToEnd(t *testing.T) {
 	}
 	if out2.SubjectID != subjectID {
 		t.Fatalf("TOTP SubjectID mismatch: %s vs %s", out2.SubjectID, subjectID)
+	}
+}
+
+func TestBindCredentialWithMeta(t *testing.T) {
+	mock := store.NewMockStore()
+	ctx := context.Background()
+
+	subjectID, _ := mock.CreateSubject(ctx)
+	err := mock.BindCredential(ctx, &identity.Credential{
+		SubjectID:    subjectID,
+		Realm:        "app",
+		IdentityType: identity.TypeWechatOpenID,
+		Identifier:   "o_xxx",
+		Meta:         identity.Meta{"appid": "wx1234567890"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cred, err := mock.FindByRealmTypeIdentifier(ctx, "app", identity.TypeWechatOpenID, "o_xxx")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cred.Meta["appid"] != "wx1234567890" {
+		t.Fatalf("expected Meta['appid']='wx1234567890', got %v", cred.Meta)
+	}
+}
+
+func TestBindCredentialNilMeta(t *testing.T) {
+	mock := store.NewMockStore()
+	ctx := context.Background()
+
+	subjectID, _ := mock.CreateSubject(ctx)
+	err := mock.BindCredential(ctx, &identity.Credential{
+		SubjectID:    subjectID,
+		Realm:        "app",
+		IdentityType: identity.TypeWechatOpenID,
+		Identifier:   "o_yyy",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = mock.FindByRealmTypeIdentifier(ctx, "app", identity.TypeWechatOpenID, "o_yyy")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// nil 或空 map 均可，不 panic 即通过
+}
+
+func TestVerifyCredentialSubjectActiveFalse(t *testing.T) {
+	mock := store.NewMockStore()
+	c := NewIdentityCore(mock)
+	ctx := context.Background()
+
+	hash, _ := crypto.Hash("pw123", crypto.DefaultCost)
+	subjectID, _ := mock.CreateSubject(ctx)
+	mock.BindCredential(ctx, &identity.Credential{
+		SubjectID: subjectID, Realm: "app", IdentityType: identity.TypePassword,
+		Identifier: "alice", CredentialData: hash,
+	})
+	mock.SetInactive(subjectID)
+
+	out, err := c.VerifyCredential(ctx, identity.VerifyInput{
+		Realm: "app", IdentityType: identity.TypePassword,
+		Identifier: "alice", InputData: "pw123",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if out.Success {
+		t.Fatal("expected Success=false")
+	}
+	if out.ErrorCode != "ACCOUNT_LOCKED" {
+		t.Fatalf("expected ACCOUNT_LOCKED, got %s", out.ErrorCode)
 	}
 }

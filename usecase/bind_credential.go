@@ -18,6 +18,7 @@ func BindCredential(
 		IdentityType:   input.IdentityType,
 		Identifier:     input.Identifier,
 		CredentialData: input.CredentialData,
+		Meta:           input.Meta,
 	}
 	return store.BindCredential(ctx, cred)
 }
