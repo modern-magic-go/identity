@@ -61,7 +61,7 @@ func main() {
 | **SubjectID** | `type SubjectID string` | 全局唯一用户标识，兼容 Snowflake int64（`SubjectIDFromInt64`）和 UUID（`SubjectIDFromString`） |
 | **Realm** | `string` | 领域/命名空间，账号池的物理隔离单位。同一标识在不同 Realm 下对应不同 SubjectID |
 | **IdentityType** | `string` | 凭证类型，内置：`PASSWORD`、`TOTP`、`WECHAT_OPENID`、`WECHAT_UNIONID`、`EMAIL`、`SMS` |
-| **Credential** | struct | 原子凭证，记录一个 Subject 在某 Realm 下的某种登录方式，含 `IsActive` 状态 |
+| **Credential** | struct | 原子凭证，含 `SubjectActive`（Subject 级活跃状态）、`IsActive`（单凭证启用状态）、`Meta`（元信息） |
 | **CredentialSummary** | struct | 凭证摘要（脱敏后不含加密数据），含 `IsActive` 状态 |
 
 ### 数据模型拓扑
@@ -79,6 +79,8 @@ erDiagram
         string Identifier
         string CredentialData
         bool IsActive
+        bool SubjectActive
+        map Meta
     }
 
     CredentialSummary {
@@ -94,7 +96,7 @@ erDiagram
 > **唯一约束**：Credential 在 `(Realm, IdentityType, Identifier)` 三元组上唯一，同一 Realm 内不允许重复绑定同类型同标识的凭证。
 
 - **Subject** 由 `CreateSubject` 创建，`SubjectID` 为 string 类型（兼容 Snowflake int64 和 UUID），不存储业务属性
-- **Credential** 是核心原子实体，包含 `IsActive` 字段。`IsActive=false` 时所有认证均返回 `ACCOUNT_LOCKED`
+- **Credential** 包含两层活跃状态：`SubjectActive`（Subject 级第一道闸，store 层 JOIN 填充）和 `IsActive`（单凭证第二道闸）。`SubjectActive=false` 返回 `ACCOUNT_LOCKED`，`IsActive=false` 返回 `CREDENTIAL_DISABLED`。`Credential.Meta` 存储认证附属信息（如微信 `appid`）
 - **CredentialSummary** 是 Credential 的脱敏投影，返回给调用方时不包含 `CredentialData`
 - **Realm 隔离**：同一外部标识在不同 Realm 下对应不同 Subject，完全物理隔离
 
@@ -117,7 +119,7 @@ func NewIdentityCore(store identity.IdentityStore) *IdentityCore
 
 ### `(*IdentityCore).VerifyCredential(ctx, input) (VerifyOutput, error)`
 
-验证调用方提供的标识和凭证是否匹配。遇到 `IsActive=false` 返回 `ACCOUNT_LOCKED`。
+验证调用方提供的标识和凭证是否匹配。两层校验闸：`SubjectActive=false` → `ACCOUNT_LOCKED`，`IsActive=false` → `CREDENTIAL_DISABLED`。
 
 ```go
 type VerifyInput struct {
@@ -130,7 +132,7 @@ type VerifyInput struct {
 type VerifyOutput struct {
     Success   bool       // 校验是否通过
     SubjectID SubjectID  // 仅在 Success=true 时有效
-    ErrorCode string     // ACCOUNT_LOCKED / INVALID_CREDENTIAL / CREDENTIAL_NOT_FOUND
+    ErrorCode string     // ACCOUNT_LOCKED / CREDENTIAL_DISABLED / INVALID_CREDENTIAL / CREDENTIAL_NOT_FOUND
     ErrorMsg  string     // 人类可读描述
 }
 ```
@@ -138,7 +140,8 @@ type VerifyOutput struct {
 ### `(*IdentityCore).GetOrInitializeSubjectID(ctx, input) (GetOrInitSubjectOutput, error)`
 
 静默解析标识符：有则返回已有 SubjectID，无则创建新 Subject。
-遇到 `IsActive=false` 返回 `ErrAccountLocked`。
+只检查 `SubjectActive`（不检查 `IsActive`，单凭证被禁不影响标识映射）。
+遇到 `SubjectActive=false` 返回 `ErrAccountLocked`。
 
 ```go
 type GetOrInitSubjectInput struct {
@@ -159,11 +162,12 @@ type GetOrInitSubjectOutput struct {
 
 ```go
 type BindCredentialInput struct {
-    SubjectID      SubjectID    // 目标 subject
+    SubjectID      SubjectID              // 目标 subject
     Realm          string
     IdentityType   IdentityType
     Identifier     string
-    CredentialData string       // 需存储的凭证数据（bcrypt hash / TOTP secret）；第三方登录可为空
+    CredentialData string                 // 需存储的凭证数据（bcrypt hash / TOTP secret）
+    Meta           map[string]string      // 凭证元信息，如 {"appid":"wx_xxx","totp_issuer":"MyApp"}
 }
 ```
 
@@ -204,7 +208,9 @@ if out.Success {
     case "CREDENTIAL_NOT_FOUND":
         // 用户不存在
     case "ACCOUNT_LOCKED":
-        // 账号被锁定（IsActive=false）
+        // 账号被冻结/封禁
+    case "CREDENTIAL_DISABLED":
+        // 此登录方式被禁用
     }
 }
 ```
@@ -296,7 +302,21 @@ if txStore, ok := myStore.(identity.TransactionalStore); ok {
         return txStore.SetInactive(txCtx, subjectID)
     })
 }
-// 冻结后该 Subject 的所有凭证认证均返回 ACCOUNT_LOCKED
+// 冻结后该 Subject 的所有凭证认证均返回 ACCOUNT_LOCKED（SubjectActive=false）
+// 单凭证可单独禁用以返回 CREDENTIAL_DISABLED（IsActive=false）
+```
+
+### 凭证元信息（Meta）
+
+```go
+// 绑定微信 OpenID 时附带 appid
+ic.BindCredential(ctx, identity.BindCredentialInput{
+    SubjectID:    subjectID,
+    Realm:        "myapp",
+    IdentityType: identity.TypeWechatOpenID,
+    Identifier:   "o_xxx",
+    Meta:         identity.Meta{"appid": "wx1234567890"},
+})
 ```
 
 ## IdentityStore 接口
@@ -330,7 +350,8 @@ type TransactionalStore interface {
 | 错误 | 含义 |
 |------|------|
 | `ErrInvalidCredential` | 凭证校验不通过（密码错误、TOTP code 不匹配） |
-| `ErrAccountLocked` | 账号被锁定（IsActive=false） |
+| `ErrAccountLocked` | 账号被冻结/封禁（SubjectActive=false） |
+| `CREDENTIAL_DISABLED`（ErrorCode 字符串） | 单登录方式被禁用（IsActive=false） |
 | `ErrDuplicateCredential` | 同一 Realm 下已存在相同类型+标识符的凭证 |
 | `ErrCredentialNotFound` | 指定凭证未找到 |
 | `ErrSubjectNotFound` | Subject 不存在 |
