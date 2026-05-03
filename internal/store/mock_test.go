@@ -5,16 +5,11 @@ import (
 	"testing"
 
 	"github.com/modern-magic-go/identity"
-	"github.com/modern-magic-go/identity/internal/idgen"
 )
 
 func setupMockStore(t *testing.T) *MockStore {
 	t.Helper()
-	gen, err := idgen.New(1)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return NewMockStore(gen)
+	return NewMockStore()
 }
 
 func TestMockStoreCreateSubject(t *testing.T) {
@@ -25,8 +20,8 @@ func TestMockStoreCreateSubject(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if id <= 0 {
-		t.Fatalf("expected positive subject ID, got %d", id)
+	if id == "" {
+		t.Fatal("expected non-empty subject ID")
 	}
 
 	id2, _ := store.CreateSubject(ctx)
@@ -84,7 +79,7 @@ func TestMockStoreBindMissingSubject(t *testing.T) {
 	ctx := context.Background()
 
 	cred := &identity.Credential{
-		SubjectID:      999,
+		SubjectID:      identity.SubjectIDFromInt64(999),
 		Realm:          "users",
 		IdentityType:   identity.TypePassword,
 		Identifier:     "admin",
@@ -116,7 +111,7 @@ func TestMockStoreFind(t *testing.T) {
 		t.Fatal(err)
 	}
 	if found.SubjectID != id {
-		t.Fatalf("expected subjectID %d, got %d", id, found.SubjectID)
+		t.Fatalf("expected subjectID %s, got %s", id, found.SubjectID)
 	}
 
 	_, err = store.FindByRealmTypeIdentifier(ctx, "users", identity.TypePassword, "nonexistent")
@@ -143,5 +138,66 @@ func TestMockStoreList(t *testing.T) {
 	}
 	if len(list) != 2 {
 		t.Fatalf("expected 2 credentials, got %d", len(list))
+	}
+}
+
+func TestMockStoreFindReturnsIsActive(t *testing.T) {
+	store := setupMockStore(t)
+	ctx := context.Background()
+
+	id, _ := store.CreateSubject(ctx)
+	store.BindCredential(ctx, &identity.Credential{
+		SubjectID: id, Realm: "users", IdentityType: identity.TypePassword, Identifier: "active_user", CredentialData: "hash",
+	})
+
+	cred, err := store.FindByRealmTypeIdentifier(ctx, "users", identity.TypePassword, "active_user")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !cred.IsActive {
+		t.Fatal("expected IsActive=true for active subject")
+	}
+
+	store.SetInactive(id)
+	cred, err = store.FindByRealmTypeIdentifier(ctx, "users", identity.TypePassword, "active_user")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cred.IsActive {
+		t.Fatal("expected IsActive=false after SetInactive")
+	}
+}
+
+func TestMockStoreWithTransaction(t *testing.T) {
+	store := setupMockStore(t)
+	ctx := context.Background()
+
+	var capturedID identity.SubjectID
+	err := store.WithTransaction(ctx, func(ctx context.Context) error {
+		id, err := store.CreateSubject(ctx)
+		if err != nil {
+			return err
+		}
+		capturedID = id
+		return store.BindCredential(ctx, &identity.Credential{
+			SubjectID:    id,
+			Realm:        "users",
+			IdentityType: identity.TypePassword,
+			Identifier:   "tx_user",
+		})
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if capturedID == "" {
+		t.Fatal("expected non-empty subject ID from transaction")
+	}
+
+	cred, err := store.FindByRealmTypeIdentifier(ctx, "users", identity.TypePassword, "tx_user")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cred.SubjectID != capturedID {
+		t.Fatalf("expected SubjectID %s, got %s", capturedID, cred.SubjectID)
 	}
 }

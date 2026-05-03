@@ -10,10 +10,10 @@ type VerifyInput struct {
 
 // VerifyOutput 校验结果
 type VerifyOutput struct {
-	Success   bool   // 校验是否通过
-	SubjectID int64  // 仅在 Success=true 时有效
-	ErrorCode string // ACCOUNT_LOCKED / INVALID_CREDENTIAL / CREDENTIAL_NOT_FOUND
-	ErrorMsg  string // 人类可读描述
+	Success   bool      // 校验是否通过
+	SubjectID SubjectID // 仅在 Success=true 时有效
+	ErrorCode string    // ACCOUNT_LOCKED / INVALID_CREDENTIAL / CREDENTIAL_NOT_FOUND
+	ErrorMsg  string    // 人类可读描述
 }
 
 // GetOrInitSubjectInput 静默解析入参
@@ -25,13 +25,13 @@ type GetOrInitSubjectInput struct {
 
 // GetOrInitSubjectOutput 解析结果
 type GetOrInitSubjectOutput struct {
-	SubjectID int64 // 已有或新创建的 subject_id
-	IsNewUser bool  // 是否为新注册
+	SubjectID SubjectID // 已有或新创建的 subject_id
+	IsNewUser bool      // 是否为新注册
 }
 
 // BindCredentialInput 绑定凭证入参
 type BindCredentialInput struct {
-	SubjectID      int64        // 目标 subject
+	SubjectID      SubjectID    // 目标 subject
 	Realm          string       // 领域
 	IdentityType   IdentityType // 凭证类型
 	Identifier     string       // 标识符
@@ -40,6 +40,8 @@ type BindCredentialInput struct {
 
 // ListCredentialsInput 列出凭证入参
 type ListCredentialsInput struct {
-	SubjectID int64  // 目标 subject
-	Realm     string // 领域
+	SubjectID SubjectID // 目标 subject
+	Realm     string    // 领域
 }
+
+

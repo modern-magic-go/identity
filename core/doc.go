@@ -13,10 +13,8 @@
 //	import (
 //	    "github.com/modern-magic-go/identity/core"
 //	    "github.com/modern-magic-go/identity/internal/store"
-//	    "github.com/modern-magic-go/identity/internal/idgen"
 //	)
 //
-//	gen, _ := idgen.New(1)
-//	ic := core.NewIdentityCore(store.NewMockStore(gen))
+//	ic := core.NewIdentityCore(store.NewMockStore())
 //	out, _ := ic.GetOrInitializeSubjectID(ctx, identity.GetOrInitSubjectInput{...})
 package core
