@@ -27,6 +27,14 @@ func VerifyCredential(
 		return identity.VerifyOutput{}, err
 	}
 
+	if !cred.IsActive {
+		return identity.VerifyOutput{
+			Success:   false,
+			ErrorCode: "ACCOUNT_LOCKED",
+			ErrorMsg:  "account is locked",
+		}, nil
+	}
+
 	verifier, ok := verifiers[cred.IdentityType]
 	if !ok {
 		return identity.VerifyOutput{

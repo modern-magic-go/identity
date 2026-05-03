@@ -2,11 +2,14 @@
 //
 // 核心概念
 //
-//   - SubjectID：全局唯一用户标识（int64），由 Snowflake 算法生成
+//   - SubjectID：全局唯一用户标识（type SubjectID string），兼容 Snowflake int64 和 UUID 两种 ID 体系。
+//     构造通道：SubjectIDFromInt64(id int64) / SubjectIDFromString(id string)
 //   - Realm：领域/命名空间（string），账号池的物理隔离单位，同一标识在不同 Realm 下对应不同 SubjectID
 //   - IdentityType：凭证类型，内置 PASSWORD / TOTP / WECHAT_OPENID / WECHAT_UNIONID / EMAIL / SMS
-//   - Credential：原子凭证，记录一个 Subject 在某 Realm 下的一种登录方式
-//   - CredentialSummary：凭证摘要，脱敏后不含 CredentialData，安全返回给调用方
+//   - Credential：原子凭证，记录一个 Subject 在某 Realm 下的一种登录方式。
+//     包含 IsActive 字段，查询时由 store 层附带，false 表示该 Subject 已被禁止认证（冻结/注销/风控）
+//   - CredentialSummary：凭证摘要，脱敏后不含 CredentialData，含 IsActive，安全返回给调用方
+//   - TransactionalStore：可选接口扩展，支持事务内执行多步 IdentityStore 操作。实现者可选满足
 //
 // 如何使用
 //

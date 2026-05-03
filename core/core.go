@@ -8,7 +8,7 @@ import (
 	"github.com/modern-magic-go/identity/usecase"
 )
 
-// IdentityCore 库的公共入口，聚合 store 和 verifier map，对外暴露 4 个方法
+// IdentityCore 库的公共入口，聚合 store 和 verifier map，对外暴露 5 个方法
 type IdentityCore struct {
 	store     identity.IdentityStore
 	verifiers map[identity.IdentityType]crypto.CredentialVerifier
@@ -44,3 +44,4 @@ func (c *IdentityCore) BindCredential(ctx context.Context, input identity.BindCr
 func (c *IdentityCore) ListCredentials(ctx context.Context, input identity.ListCredentialsInput) ([]identity.CredentialSummary, error) {
 	return usecase.ListCredentials(ctx, c.store, input)
 }
+
